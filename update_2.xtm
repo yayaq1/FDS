@@ -1,0 +1,242 @@
+;; load the instruments file
+(sys:load "libs/core/instruments.xtm")
+(sys:load "libs/external/instruments_ext.xtm")
+(sys:load "libs/core/pc_ivl.xtm")
+(sys:load "examples/sharedsystem/audiosetup.xtm")
+(define drum-path "/home/yayaq/Downloads/salamanderDrumkit/OH/")
+                                       
+;; define a sampler (called drums) using the default sampler note kernel and effects
+(make-instrument drums sampler)
+;; define a synth using the provided component fmsynth
+(make-instrument synth fmsynth)
+
+;; Load some wave files into drums sampler:
+(sampler-populate-slot drums (string-append drum-path "kick_OH_F_9.wav") *gm-kick* 0 0 0 1)
+(sampler-populate-slot drums (string-append drum-path "snareStick_OH_F_9.wav") *gm-side-stick* 0 0 0 1)
+(sampler-populate-slot drums (string-append drum-path "snare_OH_FF_9.wav") *gm-snare* 0 0 0 1)
+(sampler-populate-slot drums (string-append drum-path "hihatClosed_OH_F_20.wav") *gm-closed-hi-hat* 0 0 0 1)
+(sampler-populate-slot drums (string-append drum-path "hihatFoot_OH_MP_12.wav") *gm-pedal-hi-hat* 0 0 0 1)
+(sampler-populate-slot drums (string-append drum-path "hihatOpen_OH_FF_6.wav") *gm-open-hi-hat* 0 0 0 1)
+(sampler-populate-slot drums (string-append drum-path "loTom_OH_FF_8.wav") *gm-low-floor-tom* 0 0 0 1)
+(sampler-populate-slot drums (string-append drum-path "hiTom_OH_FF_9.wav") *gm-hi-floor-tom* 0 0 0 1)
+(sampler-populate-slot drums (string-append drum-path "crash1_OH_FF_6.wav") *gm-crash* 0 0 0 1)
+(sampler-populate-slot drums (string-append drum-path "ride1_OH_FF_4.wav") *gm-ride* 0 0 0 1)
+(sampler-populate-slot drums (string-append drum-path "china1_OH_FF_8.wav") *gm-chinese* 0 0 0 1)
+(sampler-populate-slot drums (string-append drum-path "cowbell_FF_9.wav") *gm-cowbell* 0 0 0 1)
+(sampler-populate-slot drums (string-append drum-path "bellchime_F_3.wav") *gm-open-triangle* 0 0 0 1)
+(sampler-populate-slot drums (string-append drum-path "ride1Bell_OH_F_6.wav") *gm-ride-bell* 0 0 0 1)
+
+
+;; add the instrument to the DSP output sink closure
+(bind-func dsp:DSP
+  (lambda (in time chan dat)
+    (synth in time chan dat)))
+(dsp:set! dsp)
+
+;;Chord definition
+(define chord
+   (lambda ()
+      (play-note (now) synth 60 80 *second*)
+      (play-note (now) synth 64 80 *second*)
+      (play-note (now) synth 67 80 *second*)))
+
+(chord)
+
+
+;; create our organ instrument (again, analogue
+;; is defined in libs/core/instruments.xtm
+(make-instrument organ analogue)
+                                       
+;; add the instrument to the DSP output sink closure
+(bind-func dsp:DSP
+  (lambda (in time chan dat)
+    (+ (synth in time chan dat)
+       (organ in time chan dat))))
+
+;; mordant
+(define play-note-mord
+  (lambda (time inst pitch vol duration pc)
+    (play-note (- time 5000) inst pitch (- vol 10) 2500)
+    (play-note (- time 2500) inst (pc:relative pitch 1 pc) (- vol 10) 2500)
+    (play-note time inst pitch vol (- duration 5000))))
+                                       
+;; markov chord progression I ii iii IV V vi vii
+(define progression
+  (lambda (time degree)
+    (let ((dur (if (member degree '(i iv)) 88200 44100)))
+      (for-each (lambda (p)
+                  (if (and (> p 70) (> (random) .7))
+                      (play-note-mord time synth p
+                                      (random 70 80)
+                                      (* .9 dur) '(0 2 4 5 7 9 11))
+                      (play-note time organ p (random 70 80) (* .9 dur))))
+                (pc:make-chord 40 78 4 (pc:diatonic 0 '^ degree)))
+      (callback (+ time (* .9 dur)) 'progression (+ time dur)
+                (random (cdr (assoc degree '((i iv v iii vi)
+                                             (ii v vii)
+                                             (iii vi)
+                                             (iv v ii vii i)
+                                             (v i vi)
+                                             (vii v i)
+                                             (vi ii)))))))))
+
+;;Start Progression                                  
+(progression (now) 'i)
+                                       
+;; Quintet
+(define progression
+  (lambda (time degree)
+    (let ((dur (if (member degree '(i iv)) (random (list 88200 (* 2 88200))) 44100)))
+      (for-each (lambda (p)
+                  (cond ((and (> (random) .7) (< dur 80000))
+                         (play-note time organ p (random 60 70) (* .3 dur))
+                         (play-note (+ time (* .5 dur))
+                                    organ
+                                    (pc:relative p (random '(-1 1))
+                                                 '(0 2 4 5 7 9 11))
+                                    (random 60 80)
+                                    (* .3 dur)))
+                        (else (play-note time
+                                         organ
+                                         p
+                                         (random 60 70)
+                                         (* .7 dur)))))
+                (pc:make-chord 36 90 5 (pc:diatonic 0 '^ degree)))
+      (callback (+ time (* .8 dur)) 'progression (+ time dur)
+                (random (cdr (assoc degree '((i iv v iii vi)
+                                             (ii v vii)
+                                             (iii vi)
+                                             (iv v ii vii i)
+                                             (v i vi)
+                                             (vii v i)
+                                             (vi ii)))))))))
+
+;;Stop Progression
+(define progression (lambda args))
+
+                                       
+;;New instrument: Organum
+(define organum
+  (lambda (time mlst hlst rlst)
+    (play-note time synth (car mlst) 60 (car rlst))
+    (play-note time synth (car hlst) 60 (car rlst))
+    (if (not (null? (cdr mlst)))
+        (callback (+ time (* .5 (car rlst))) 'organum (+ time (car rlst))
+                  (cdr mlst)
+                  (cdr hlst)
+                  (cdr rlst)))))
+;; start
+(organum (now) melody harmony rhythm)
+                                       
+;;stop organum
+(define organum (lambda args))
+
+                                       
+                                       
+;;Pitch control
+;; this chooses a C in any octave
+(pc:random 0 127 '(0))
+
+;; this chooses any note from a D minor chord in octave 4
+(pc:random 60 73 '(2 5 9))
+
+;; this chooses any note from a C pentatonic octaves 3-6
+(pc:random 48 97 '(0 2 4 7 9))
+
+;; this gives us 62
+(pc:relative 60 1 '(0 2 4 5 7 9 11))
+
+;; this gives us 67
+(pc:relative 60 4 '(0 2 4 5 7 9 11))
+                                       
+;; messiaen drum kit
+(define *metro* (make-metro 140))
+
+(define *metre1* (make-metre '(2 3 4 3 2) .5))
+(define *metre2* (make-metre '(3 5 7 5 3) .5))
+
+
+(bind-func dsp:DSP
+  (lambda (in time chan dat)
+    (+ (synth in time chan dat)
+       (drums in time chan dat))))
+
+(dsp:set! dsp)
+                                           
+;;test working of drums 
+;; evaluate
+(play-note (now) drums *gm-open-triangle* 80 44100)
+(play-note (now) drums *gm-snare* 80 44100)
+(play-note (now) drums *gm-closed-hi-hat* 80 44100)                                       
+;; play first beat of each 'bar'
+(define metre-test
+  (lambda (time degree)
+    (play-note (*metro* time) drums
+               (random (cons .8 *gm-closed-hi-hat*) (cons .2 *gm-open-hi-hat*))
+               (+ 40 (* 20 (cos (* 2 3.141592 time))))
+               (random (cons .8 500)  (cons 2 2000))
+               9)
+    (play-note (*metro* time) synth
+               (pc:random 90 107 (pc:diatonic 9 '- degree))
+               (+ 50 (* 25 (cos (* .125 3.141592 time))))
+               100)
+    (if (*metre1* time 1.0)
+        (begin (play-note (*metro* time) drums *gm-snare* 80 10000)
+               (play-note (*metro* time) drums *gm-pedal-hi-hat* 80 100000)
+               (play-note (*metro* time) organ
+                          (+ 60 (car (pc:diatonic 9 '- degree)))
+                          60
+                          10000)))
+    (if (*metre2* time 1.0)
+        (begin (play-note (*metro* time) drums *gm-kick* 100 100000)
+               (play-note (*metro* time) drums *gm-ride-bell* 100 100000)
+               (for-each (lambda (p)
+                           (play-note (*metro* time) synth p 70 10000))
+                         (pc:make-chord 65 80 3 (pc:diatonic 9 '- degree)))))
+    (callback (*metro* (+ time 0.2)) 'metre-test (+ time 0.25)
+              (if (= 0.0 (modulo time 8.0))
+                  (random (cdr (assoc degree '((i vii vii vi)
+                                               (n v)
+                                               (vi n)
+                                               (v vi i)
+                                               (vii i)))))
+                  degree))))
+
+(metre-test (*metro* 'get-beat 1.0) 'i)    
+(define metre-test (lambda args))
+
+;; Track 16: Synth2 Melody
+(:| synth2-melody 4 0 (play syn2 @1 100 dur)
+    (cycle LC 2
+           '(d4 f4 a4 d5 a5 f5 d5 a4)
+           '(b3 d4 f4 b4 f5 d5 b4 f4)))
+
+;; Track 17: Synth3 Melody
+(:| synth3-melody 4 0 (play syn3 @1 80 dur)
+    (cycle LC 2
+           '(g4 b4 d5 g5 d6 b5 g5 d5)
+           '(e3 g3 b3 e4 b4 g4 e4 b3)))
+
+;;Track 11 Piano Suite
+(:| piano-suites 4 0 (play samp1 @1 200 dur)
+    (cycle LC 2
+           '(c3 e3 g3 c4 e4 g3 c4 e4)
+           '(c3 d3 a3 d4 f4 a3 d4 f4)))
+                                       
+;; Track 13: Piano Suite Variation
+(:| piano-suite-variation 4 0 (play samp1 @1 200 dur)
+    (cycle LC 2
+           '(c4 e4 a4 d5 g5 e5 c5 a4)
+           '(g3 b3 d4 g4 d5 b4 g4 d4)))
+                                       
+;; Track 3
+
+(:| track-3 2 0 (play syn3 @1 120 dur) (list 60 67 64 72 68 65 62 69))
+
+;; Track 4
+(:| track-4 2 0 (play syn2 @1 120 dur) (list 72 65 68 60 67 70 63 61))
+
+;; Track 5
+(:| track-5 2 0 (play syn1 @1 80 dur) (list 60 64 68 72 76 80 84 88))
+                                       
+;;Thank you for watching! Next step is the GUI.

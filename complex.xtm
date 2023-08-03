@@ -1,0 +1,83 @@
+(sys:load "examples/sharedsystem/audiosetup.xtm")
+
+;; Track 1
+(:| track-1 2 0 (play syn1 @1 160 dur) (list 60 62 64 65 67 69 71 72))
+
+;; Track 2
+(:| track-2 2 0 (play syn2 @1 120 dur) (list 72 70 68 67 65 63 61 60))
+
+;; Track 3
+
+(:| track-3 2 0 (play syn3 @1 120 dur) (list 60 67 64 72 68 65 62 69))
+
+;; Track 4
+(:| track-4 2 0 (play syn2 @1 120 dur) (list 72 65 68 60 67 70 63 61))
+
+;; Track 5
+(:| track-5 2 0 (play syn1 @1 80 dur) (list 60 64 68 72 76 80 84 88))
+
+;; Track 6
+(:| track-6 2 0 (play kit @1 80 dur) (list 88 84 80 76 72 68 64 60))
+
+;; Track 7
+(:| track-7 2 0 (play syn1 @1 160 dur) (list 60 63 66 69 72 75 78 81))
+
+;; Track 8
+(:| track-8 2 0 (play samp1 @1 80 dur) (list 81 78 75 72 69 66 63 60))
+
+;; Track 9
+(:| track-9 2 0 (play syn1 @1 80 dur) (list 60 62 64 66 68 70 72 74))
+
+
+;; Track 10: Synth2 Melody
+(:| synth2-melody 4 0 (play syn2 @1 120 dur)
+    (cycle LC 2
+           '(c4 e4 g4 c5 e5 g4 c5 e5)
+           '(c3 d3 a3 d4 f4 a3 d4 f4)))
+
+;;Track 11 Piano Suite
+(:| piano-suites 4 0 (play samp1 @1 200 dur)
+    (cycle LC 2
+           '(c3 e3 g3 c4 e4 g3 c4 e4)
+           '(c3 d3 a3 d4 f4 a3 d4 f4)))
+
+
+
+;; Track 12: Drum Beat
+(:| drum-beat 4 0 (play kit @1 200 dur)
+    (cycle LC 2
+           '(c1 e1 g1 c2 e2 g1 c2 e2)
+           '(c1 d1 a1 d2 f2 a1 d2 f2)))
+
+
+;; Track 13: Piano Suite Variation
+(:| piano-suite-variation 4 0 (play samp1 @1 200 dur)
+    (cycle LC 2
+           '(c4 e4 a4 d5 g5 e5 c5 a4)
+           '(g3 b3 d4 g4 d5 b4 g4 d4)))
+
+;; Track 14: Synth Melody
+(:| synth-melody 4 0 (play syn1 @1 80 dur)
+    (cycle LC 2
+           '(e4 g4 b4 e5 b5 g5 e5 b4)
+           '(a3 c4 e4 a4 e5 c5 a4 e4)))
+
+;; Track 15: Drum Beat
+(:> drum-beat 4 0 (play kit @1 80 dur)
+    (cycle LC 2
+           '(c1 e1 g1 c2 e2 g1 c2 e2)
+           '(c1 d1 a1 d2 f2 a1 d2 f2)))
+
+;; Track 16: Synth2 Melody
+(:| synth2-melody 4 0 (play syn2 @1 100 dur)
+    (cycle LC 2
+           '(d4 f4 a4 d5 a5 f5 d5 a4)
+           '(b3 d4 f4 b4 f5 d5 b4 f4)))
+
+;; Track 17: Synth3 Melody
+(:| synth3-melody 4 0 (play syn3 @1 80 dur)
+    (cycle LC 2
+           '(g4 b4 d5 g5 d6 b5 g5 d5)
+           '(e3 g3 b3 e4 b4 g4 e4 b3)))
+
+
