@@ -1,0 +1,537 @@
+;; load the instruments file
+(sys:load "libs/core/instruments.xtm")
+
+;; define a synth using the provided component fmsynth
+(make-instrument synth fmsynth)
+
+;; add the instrument to the DSP output sink closure
+(bind-func dsp:DSP
+  (lambda (in time chan dat)
+    (synth in time chan dat)))
+(dsp:set! dsp)
+
+;; play a note on our synth
+(play-note (now) synth (random 60 80) 80 (* 1.0 *second*))
+
+(define chord
+   (lambda ()
+      (play-note (now) synth 60 80 *second*)
+      (play-note (now) synth 64 80 *second*)
+      (play-note (now) synth 67 80 *second*)))
+
+(chord)
+
+; hello world as a list of note pitches
+; transposed down two octaves (24 semitones)
+(define melody (map (lambda (c)
+                       (- (char->integer c) 24))
+                    (string->list "Hello World!")))
+
+; Define a recursive function to cycle through the pitches in melody
+(define loop
+   (lambda (time pitch-list)
+      (cond ((null? pitch-list) (println 'done))
+            (else (play-note time synth (car pitch-list) 80 10000)
+                  (loop (+ time (* *second* 0.5))
+                        (cdr pitch-list))))))
+
+; start playing melody
+(loop (now) melody)
+
+;;part  2
+
+;; define a synth using the provided component fmsynth
+(make-instrument synth fmsynth)
+
+;; add the instrument to the DSP output sink closure
+(bind-func dsp:DSP
+  (lambda (in time chan dat)
+    (synth in time chan dat)))
+
+(dsp:set! dsp)
+
+(dotimes (i 8)
+  (play-note (+ (now) (* i 5000)) synth (+ 60 i) 80 4000))
+
+;; recursive whole-tone scale
+(let loop ((i 0))
+  (play-note (+ (now) (* i 2500)) synth (+ 60 i) 80 4000)
+  (if (< i 9) (loop (+ i 2))))
+
+;; recursive major scale
+(let loop ((scale '(0 2 4 5 7 9 11 12))
+           (time 0))
+  (play-note (+ (now) time) synth (+ 60 (car scale)) 80 4000)
+  (if (not (null? (cdr scale)))
+      (loop (cdr scale) (+ time 5000))))
+
+
+;; recursive major scale with rhythm
+(let loop ((scale '(0 2 4 5 7 9 11 12))
+           (dur '(22050 11025 11025 22050 11025 11025 44100 44100))
+           (time 0))
+  (play-note (+ (now) time) synth (+ 60 (car scale)) 80 (car dur))
+  (if (not (null? (cdr scale)))
+      (loop (cdr scale) (cdr dur) (+ time (car dur)))))
+
+;; recursive chord
+(let loop ((chord '(0 4 7)))
+  (play-note (now) synth (+ 60 (car chord)) 80 44100)
+  (if (not (null? (cdr chord)))
+      (loop (cdr chord))))
+
+;; we could also write this
+(let loop ((scale '(0 4 7)))
+  (cond ((null? scale) 'finished)
+        (else (play-note (now) synth (+ 60 (car scale)) 80 44100)
+              (loop (cdr scale)))))
+
+(map (lambda (p)
+       (play-note (now) synth p 80 44100))
+     (list 60 63 67))
+
+;; map broken chord
+(map (lambda (p d)
+       (play-note (+ (now) d) synth p 80 (- 88200 d)))
+     (list 60 64 67)
+     (list 0 22050 44100))
+
+(for-each (lambda (p d v)
+            (play-note (+ (now) d) synth p v (- 88200 d)))
+          (list 60 64 67)
+          (list 0 22050 44100)
+          (list 90 50 20))
+
+;; plays a sequence of pitches
+(define play-seq
+  (lambda (time plst)
+    (play-note time synth (car plst) 80 11025)
+    (if (not (null? (cdr plst)))
+        (callback (+ time 10000) 'play-seq (+ time 11025) (cdr plst)))))
+
+(play-seq (now) '(60 62 63 65 67 68 71 72))
+
+(define play-seq
+  (lambda (time plst)
+    (play-note time synth (car plst) 80 11025)
+    (if (null? (cdr plst))
+        (callback (+ time 10000) 'play-seq (+ time 11025) '(60 62 65))
+        (callback (+ time 10000) 'play-seq (+ time 11025) (cdr plst)))))
+
+;;stop play seq
+(define play-seq (lambda args))
+
+(play-seq (now) '(60 62 65))
+
+;; plays a sequence of pitches
+(define play-seq
+  (lambda (time plst rlst)
+    (play-note time synth (car plst) 80 (car rlst))
+    (callback (+ time (* .5 (car rlst))) 'play-seq (+ time (car rlst))
+              (if (null? (cdr plst))
+                  '(60 62 65 69 67)
+                  (cdr plst))
+              (if (null? (cdr rlst))
+                  '(11025 11025 22050 11025)
+                  (cdr rlst)))))
+
+(play-seq (now) '(60 62 65 69 67) '(11025 11025 22050 11025))
+
+
+;; plays a random pentatonic sequence of notes with a metric pulse
+(define play-seq
+  (lambda (time plst rlst)
+    (play-note time synth (car plst)
+               (+ 60 (* 50 (cos (* 0.03125 3.141592 time))))
+               (* .65 (car rlst)))
+    (callback (+ time (* .5 (car rlst))) 'play-seq (+ time (car rlst))
+              (if (null? (cdr plst))
+                  (make-list-with-proc 4 (lambda (i) (random '(60 62 64 67 69))))
+                  (cdr plst))
+              (if (null? (cdr rlst))
+                  (make-list 4 11025)
+                  (cdr rlst)))))
+
+(play-seq (now) '(60 62 64 67) '(11025))
+
+
+(dotimes (i 12)
+  (println 'modulo (+ i 60) 12 '=> (modulo (+ i 60) 12)))
+
+(sys:load "libs/core/pc_ivl.xtm")
+
+;; four examples tested against the pitch class set representation of a C major chord
+(pc:? 60 '(0 4 7))
+(pc:? 84 '(0 4 7))
+(pc:? 35 '(0 4 7))
+(pc:? 79 '(0 4 7))
+
+
+;; this chooses a C in any octave
+(pc:random 0 127 '(0))
+
+;; this chooses any note from a D minor chord in octave 4
+(pc:random 60 73 '(2 5 9))
+
+;; this chooses any note from a C pentatonic octaves 3-6
+(pc:random 48 97 '(0 2 4 7 9))
+
+;; this gives us 62
+(pc:relative 60 1 '(0 2 4 5 7 9 11))
+
+;; this gives us 67
+(pc:relative 60 4 '(0 2 4 5 7 9 11))
+
+;; this gives us 67 as well
+(pc:relative 67 0 '(0 2 4 5 7 9 11))
+
+;; this gives us 57 (yes you can go backwards)
+(pc:relative 60 -2 '(0 2 4 5 7 9 11))
+
+;; define a melody
+(define melody (make-list-with-proc 24
+                                    (lambda (i)
+                                      (pc:random 60 73 '(0 2 4 5 7 9 11)))))
+
+;; define harmony up a perfect 5th (4 places away in the pitch class set)
+(define harmony (map (lambda (p)
+                       (pc:relative p 4 '(0 2 4 5 7 9 11)))
+                     melody))
+
+;; set c at start and end
+(set! melody (cons 60 melody))
+(set! harmony (cons 60 harmony))
+
+(set! melody (reverse (cons 60 (reverse melody))))
+(set! harmony (reverse (cons 60 (reverse harmony))))
+
+;; random rhythm
+(define rhythm (make-list-with-proc 24 (lambda (i) (random '(44100 22050)))))
+
+;; set long start and end to rhythm
+(set! rhythm (cons 88200 rhythm))
+(set! rhythm (reverse (cons 88200 (reverse rhythm))))
+
+(define organum
+  (lambda (time mlst hlst rlst)
+    (play-note time synth (car mlst) 60 (car rlst))
+    (play-note time synth (car hlst) 60 (car rlst))
+    (if (not (null? (cdr mlst)))
+        (callback (+ time (* .5 (car rlst))) 'organum (+ time (car rlst))
+                  (cdr mlst)
+                  (cdr hlst)
+                  (cdr rlst)))))
+
+;; start
+(organum (now) melody harmony rhythm)
+
+(define melody
+  (let loop ((i 0)
+             (lst '(60)))
+    (if (< i 24)
+        (loop (+ i 1)
+              (cons (pc:relative (car lst)
+                                 (random '(-1 1))
+                                 '(0 2 4 5 7 9 11))
+                    lst))
+        (cdr (reverse lst)))))
+
+(define crazy-chord (lambda args))
+
+
+(define crazy-chord
+  (lambda (time)
+    (play-note time synth (pc:random 24 97 '(0 4 7 10 2 3 5 9 6 11 1)) 80 500)
+    (callback (+ time 1000) 'crazy-chord (+ time 2000))))
+
+(crazy-chord (now))
+
+;; C-major and repeat
+(define chords
+  (lambda (time)
+    (for-each (lambda (p)
+                (play-note time synth p 80 10000))
+              (pc:make-chord 60 72 3 '(0 4 7)))
+    (callback (+ time 10000) 'chords (+ time 11025))))
+
+(chords (now))
+
+(define chords (lambda args))
+
+;; I IV V
+(define chords
+  (lambda (time chord)
+    (for-each (lambda (p)
+                (play-note time synth p 80 10000))
+              (pc:make-chord 18 90 10 chord))
+    (callback (+ time 10000) 'chords (+ time 11025)
+              (if (> (random) .8)
+                  (random '((0 4 7) (5 9 0) (7 11 2)))
+                  chord))))
+
+(chords (now) '(0 4 7))
+
+;; markov chord progression I IV V
+(define progression
+  (lambda (time chord)
+    (for-each (lambda (p)
+                (play-note time synth p 80 40000))
+              (pc:make-chord 60 73 3 chord))
+    (callback (+ time 40000) 'progression (+ time 44100)
+              (random (cdr (assoc chord '(((0 4 7) (5 9 0) (7 11 2))
+                                          ((5 9 0) (7 11 2) (0 4 7))
+                                          ((7 11 2) (0 4 7)))))))))
+
+(progression (now) '(0 4 7))
+
+(define progression (lambda args))
+
+;; markov chord progression I ii iii IV V vi vii
+(define progression
+  (lambda (time degree)
+    (for-each (lambda (p)
+                (play-note time synth p 80 40000))
+              (pc:make-chord 48 77 5 (pc:diatonic 0 '^ degree)))
+    (callback (+ time 40000) 'progression (+ time 44100)
+              (random (cdr (assoc degree '((i iv v iii vi)
+                                           (ii v vii)
+                                           (iii vi)
+                                           (iv v ii vii i)
+                                           (v i vi)
+                                           (vii v i)
+                                           (vi ii))))))))
+
+(progression (now) 'i)
+
+;; create our organ instrument (again, analogue
+ ;; is defined in libs/core/instruments.xtm
+(make-instrument organ analogue)
+
+;; add the instrument to the DSP output sink closure
+(bind-func dsp:DSP
+  (lambda (in time chan dat)
+    (+ (synth in time chan dat)
+       (organ in time chan dat))))
+
+;; mordant
+(define play-note-mord
+  (lambda (time inst pitch vol duration pc)
+    (play-note (- time 5000) inst pitch (- vol 10) 2500)
+    (play-note (- time 2500) inst (pc:relative pitch 1 pc) (- vol 10) 2500)
+    (play-note time inst pitch vol (- duration 5000))))
+
+;; markov chord progression I ii iii IV V vi vii
+(define progression
+  (lambda (time degree)
+    (let ((dur (if (member degree '(i iv)) 88200 44100)))
+      (for-each (lambda (p)
+                  (if (and (> p 70) (> (random) .7))
+                      (play-note-mord time synth p
+                                      (random 70 80)
+                                      (* .9 dur) '(0 2 4 5 7 9 11))
+                      (play-note time organ p (random 70 80) (* .9 dur))))
+                (pc:make-chord 40 78 4 (pc:diatonic 0 '^ degree)))
+      (callback (+ time (* .9 dur)) 'progression (+ time dur)
+                (random (cdr (assoc degree '((i iv v iii vi)
+                                             (ii v vii)
+                                             (iii vi)
+                                             (iv v ii vii i)
+                                             (v i vi)
+                                             (vii v i)
+                                             (vi ii)))))))))
+
+(progression (now) 'i)
+                                       
+
+;; Quintet
+(define progression
+  (lambda (time degree)
+    (let ((dur (if (member degree '(i iv)) (random (list 88200 (* 2 88200))) 44100)))
+      (for-each (lambda (p)
+                  (cond ((and (> (random) .7) (< dur 80000))
+                         (play-note time organ p (random 60 70) (* .3 dur))
+                         (play-note (+ time (* .5 dur))
+                                    organ
+                                    (pc:relative p (random '(-1 1))
+                                                 '(0 2 4 5 7 9 11))
+                                    (random 60 80)
+                                    (* .3 dur)))
+                        (else (play-note time
+                                         organ
+                                         p
+                                         (random 60 70)
+                                         (* .7 dur)))))
+                (pc:make-chord 36 90 5 (pc:diatonic 0 '^ degree)))
+      (callback (+ time (* .8 dur)) 'progression (+ time dur)
+                (random (cdr (assoc degree '((i iv v iii vi)
+                                             (ii v vii)
+                                             (iii vi)
+                                             (iv v ii vii i)
+                                             (v i vi)
+                                             (vii v i)
+                                             (vi ii)))))))))
+
+(progression (now) 'i)
+                                       
+                                       
+;; load the libs
+(sys:load "libs/external/instruments_ext.xtm")
+(sys:load "libs/core/instruments.xtm")
+
+(define drum-path "/home/yayaq/Downloads/salamanderDrumkit/OH/")
+                                       
+;; define a sampler (called drums) using the default sampler note kernel and effects
+(make-instrument drums sampler)
+;; define a synth using the provided components
+(make-instrument synth fmsynth)
+
+;; add the sampler to the dsp output callback
+(bind-func dsp:DSP
+  (lambda (in time chan dat)
+    (+ (synth in time chan dat)
+       (drums in time chan dat))))
+
+(dsp:set! dsp)
+
+
+;; Load some wave files into drums sampler:
+(sampler-populate-slot drums (string-append drum-path "kick_OH_F_9.wav") *gm-kick* 0 0 0 1)
+(sampler-populate-slot drums (string-append drum-path "snareStick_OH_F_9.wav") *gm-side-stick* 0 0 0 1)
+(sampler-populate-slot drums (string-append drum-path "snare_OH_FF_9.wav") *gm-snare* 0 0 0 1)
+(sampler-populate-slot drums (string-append drum-path "hihatClosed_OH_F_20.wav") *gm-closed-hi-hat* 0 0 0 1)
+(sampler-populate-slot drums (string-append drum-path "hihatFoot_OH_MP_12.wav") *gm-pedal-hi-hat* 0 0 0 1)
+(sampler-populate-slot drums (string-append drum-path "hihatOpen_OH_FF_6.wav") *gm-open-hi-hat* 0 0 0 1)
+(sampler-populate-slot drums (string-append drum-path "loTom_OH_FF_8.wav") *gm-low-floor-tom* 0 0 0 1)
+(sampler-populate-slot drums (string-append drum-path "hiTom_OH_FF_9.wav") *gm-hi-floor-tom* 0 0 0 1)
+(sampler-populate-slot drums (string-append drum-path "crash1_OH_FF_6.wav") *gm-crash* 0 0 0 1)
+(sampler-populate-slot drums (string-append drum-path "ride1_OH_FF_4.wav") *gm-ride* 0 0 0 1)
+(sampler-populate-slot drums (string-append drum-path "china1_OH_FF_8.wav") *gm-chinese* 0 0 0 1)
+(sampler-populate-slot drums (string-append drum-path "cowbell_FF_9.wav") *gm-cowbell* 0 0 0 1)
+(sampler-populate-slot drums (string-append drum-path "bellchime_F_3.wav") *gm-open-triangle* 0 0 0 1)
+(sampler-populate-slot drums (string-append drum-path "ride1Bell_OH_F_6.wav") *gm-ride-bell* 0 0 0 1)
+
+;; evaluate
+(play-note (now) drums *gm-open-triangle* 80 44100)
+(play-note (now) drums *gm-snare* 80 44100)
+(play-note (now) drums *gm-closed-hi-hat* 80 44100)
+
+                                       
+;; create a metronome starting at 120 bpm
+(define *metro1* (make-metro 120))
+
+;; beat loop along the metronome
+(define drum-loop
+  (lambda (time duration drum)
+    (println time duration)
+    (play-note (*metro1* time) drums drum 80 (*metro1* 'dur duration))
+    (callback (*metro1* (+ time (* .5 duration))) 'drum-loop (+ time duration)
+              duration drum)))
+
+(define drum-loop (lambda args))
+                                       
+(drum-loop (*metro1* 'get-beat) 1 *gm-hi-floor-tom*)
+                                       
+                                       ;; create another metronome starting at 120 bpm
+(define *metro2* (make-metro 120))
+
+                                       ;; set tempo shift
+(define drum-loop-tempo-shift
+  (lambda (time duration drum)
+    (*metro2* 'set-tempo (+ 20 (* 6. (cos (modulo time 9)))))
+    (println (+ 20 (* 6. (cos (modulo time 9)))))
+    (play-note (*metro2* time) drums drum 80 (*metro2* 'dur duration))
+    (callback (*metro2* (+ time (* .5 duration))) 'drum-loop-tempo-shift (+ time duration)
+              (random (list 0.5)) drum)))
+
+                                       
+(define drum-loop-tempo-shift (lambda args))
+
+                                       
+(drum-loop-tempo-shift (*metro2* 'get-beat) 0.5 *gm-cowbell*)
+
+;; beat loop at 120bpm
+(define drum-loop
+  (lambda (time dur)
+    (let ((d (* dur .5 *samplerate*)))
+      (play-note time drums *gm-open-triangle* 80 d)
+      (callback (+ time (* .5 d)) 'drum-loop (+ time d)
+                (random (list (/ 1 3) 0.5 0.25))))))
+
+(drum-loop (now) 0.7)
+
+;;stop drums                             
+(define drum-loop(lambda args))
+                                       
+                                       
+                                       
+                                       
+;; create a metronome starting at 120 bpm
+(define *metro* (make-metro 120))
+
+;; beat loop with tempo shift
+(define drum-loop
+  (lambda (time duration pitch)
+    (play-note (*metro* time) drums pitch 80 (*metro* 'dur duration))
+    (callback (*metro* (+ time (* .5 duration))) 'drum-loop (+ time duration)
+              duration
+              pitch)))
+
+;; shift tempo over time using oscillator
+(define tempo-shift
+  (lambda (time)
+    (*metro* 'set-tempo (+ 120 (* 40 (cos (* .25 3.141592 time)))))
+    (callback (*metro* (+ time .2)) 'tempo-shift (+ time .25))))
+
+(drum-loop (*metro* 'get-beat 4) 0.5 *gm-cowbell*)
+(drum-loop (*metro* 'get-beat 4.25) 0.5 *gm-open-triangle*)
+(tempo-shift (*metro* 'get-beat 1.0))
+                                       
+                                       
+                                       
+(sys:load "libs/core/pc_ivl.xtm")
+
+;; messiaen drum kit
+(define *metro* (make-metro 140))
+
+(define *metre1* (make-metre '(2 3 4 3 2) .5))
+(define *metre2* (make-metre '(3 5 7 5 3) .5))
+
+;; play first beat of each 'bar'
+(define metre-test
+  (lambda (time degree)
+    (play-note (*metro* time) drums
+               (random (cons .8 *gm-closed-hi-hat*) (cons .2 *gm-open-hi-hat*))
+               (+ 40 (* 20 (cos (* 2 3.141592 time))))
+               (random (cons .8 500)  (cons 2 2000))
+               9)
+    (play-note (*metro* time) synth
+               (pc:random 90 107 (pc:diatonic 9 '- degree))
+               (+ 50 (* 25 (cos (* .125 3.141592 time))))
+               100)
+    (if (*metre1* time 1.0)
+        (begin (play-note (*metro* time) drums *gm-snare* 80 10000)
+               (play-note (*metro* time) drums *gm-pedal-hi-hat* 80 100000)
+               (play-note (*metro* time) organ
+                          (+ 60 (car (pc:diatonic 9 '- degree)))
+                          60
+                          10000)))
+    (if (*metre2* time 1.0)
+        (begin (play-note (*metro* time) drums *gm-kick* 100 100000)
+               (play-note (*metro* time) drums *gm-ride-bell* 100 100000)
+               (for-each (lambda (p)
+                           (play-note (*metro* time) synth p 70 10000))
+                         (pc:make-chord 65 80 3 (pc:diatonic 9 '- degree)))))
+    (callback (*metro* (+ time 0.2)) 'metre-test (+ time 0.25)
+              (if (= 0.0 (modulo time 8.0))
+                  (random (cdr (assoc degree '((i vii vii vi)
+                                               (n v)
+                                               (vi n)
+                                               (v vi i)
+                                               (vii i)))))
+                  degree))))
+
+(metre-test (*metro* 'get-beat 1.0) 'i)
+
+(define metre-test(lambda args))
+                                       
+                                       

@@ -1,0 +1,98 @@
+(sys:load "examples/sharedsystem/audiosetup.xtm")
+(:| pat-1 2 0 (play syn1 @1 80 dur) (list 60 58 60 63 60 61))
+
+(:| pat-1 2 0 (play syn2 @1 80 dur) (list 60 58 60 63))
+
+
+
+
+(*metro* 'set-tempo 80)
+
+
+(:> pat-1 2 0 (play syn1 @1 80 dur) (list 60 58 60 63 60 61))
+
+;;longer length
+(:| pat-1 1 0 (play syn1 @1 80 dur) (list 60 58 60 63 60 61))
+
+
+;;playing two patterns at once
+(:> pat-1 2 0 (play syn1 @1 80 dur) (list 60 58 60 63 60 61))
+(:> pat-2 4 1 (play syn1 @1 80 dur) (list 67 67 67 48 36 65))
+
+
+;;skipping patterns with '_'
+(:> pat-2 4 1 (play syn1 @1 80 dur) (list 67 67 67 '_ 63 65))
+
+;; quoting the expression
+(:> pat-2 4 1 (play syn1 @1 80 dur) '(67 67 67 _ 63 65))
+
+
+;;stacking with '|' characrer to avoid typing in the same numbers again and again
+(:> pat-2 4 1 (play syn1 @1 80 dur) '(67 67 67 | | 65))
+
+
+;;subdividing using sub lists
+(:| pat-2 4 1 (play syn1 @1 80 dur) '(67 67 67 48 36 (61 65)))
+
+(:| pat-3 4 0 (play syn1 @1 80 dur) '(48 (46 (49 46))))
+
+(:| pat-3 4 0 (play syn1 @1 80 dur) '(48 (54 _ 46)))
+
+(:| option-1 4 0 (play syn1 @1 80 dur) '(60 | 48 61))
+(:| option-2 8 0 (play syn1 @1 80 dur) '(60 (48 61)))
+
+
+;;Playing multiple notes at once
+(:| chord-l 4 0 (play syn1 @1 80 dur) '(60))
+(:| chord-m 4 0 (play syn1 @1 80 dur) '(63))
+(:| chord-h 4 0 (play syn1 @1 80 dur) '(67))
+
+(:| chord-all 4 0 (play syn1 @1 80 dur) '(#(60 63 67)))
+
+(:| chord-progression 16 0 (play syn1 @1 80 dur)
+	'(#(60 63 67) #(60 63 68) #(58 63 67) (#(58 63 65) #(58 62 65))))
+
+
+;;Multiple pattern lists
+(:| pat-1 2 0 (play syn1 @1 @2 dur) '(60 58 60 63) '(70 70 100 70))
+
+(:| pat-1 2 0 (play syn1 @2 @1 dur) '(70 70 100 70) '(60 58 60 63))
+
+
+;;Special pattern expression variables
+(:> pat-1 2 0 (play syn1 @1 80 dur) '(60 58 60 63))
+(:| pat-1 2 0 (play syn1 @1 80 (* dur 1)) '(60 58 60 63))
+
+(:| pat-1 2 0 (play syn1 @1 80 dur) (list 60 58 60 (if (= (% LC 2) 0) 66 63)))
+(:| pat-1 2 0 (play syn1 @1 80 dur) (list 60 58 60 (orb LC 2 66 63)))
+
+(:| pat-1 2 0 (play syn1 @1 80 dur) (list 60 58 60 (orb LC 3 66 63)))
+
+(:| pat-1 2 0 (play syn1 @1 80 dur) (list 60 58 60 (orb LC 3 66)))
+
+(:> pat-1 2 0 (play syn1 @1 80 dur) (list 60 58 60 (cycle LC 1 '(72 67) '(73 72))))
+
+(:> pat-1 2 0 (play syn1 @1 80 dur) (list 60 58 60 (cycle LC 2 '(72 67) '(73 72))))
+
+
+;;Using note names instead of midi note numbers
+
+(:| cello-suites 4 0 (play syn1 @1 80 dur) '(c3 e3 g3 c4 e4 g3 c4 e4))
+
+(:> cello-suites 2 0 (play syn1 @1 80 dur)
+    (cycle LC 2
+           '(c3 e3 g3 c4 e4 g3 c4 e4)
+           '(c3 d3 a3 d4 f4 a3 d4 f4)))
+
+(:| asc-scale 2 0 (play syn1 @1 80 dur) (scale 3 8))
+
+(define *root* 0)
+(define *chord* '(36 60 63 67))
+(define *scale* (pc:scale 0 'aeolian)) ;; 0 for the C pitch class (C# would be 1, etc.)
+
+(set! *scale* (pc:scale 0 'phrygian))
+
+(:> got 3 0 (play syn1 (rel 60 @1) 80 dur) '(4 0 (2 3)))
+
+(:| got 3 0 (play syn1 (rel 60 @1 (pc:scale 0 'ionian)) 80 dur) '(4 0 (2 3)))
+
